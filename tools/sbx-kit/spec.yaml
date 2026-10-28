@@ -1,0 +1,30 @@
+schemaVersion: "2"
+kind: mixin
+name: clawdmeter
+version: "0.1.0"
+displayName: Clawdmeter
+description: Report Claude Code hook events to Clawdmeter on the host.
+sourceURL: https://github.com/HermannBjorgvin/Clawdmeter
+requires:
+  agent: claude
+
+args:
+  hook_port:
+    default: "47991"
+    description: The app's hook listener port (the hook_port config key).
+    pattern: "^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$"
+
+permissions:
+  network:
+    allow:
+      - "localhost:${{ kit.args.hook_port }}"
+
+environment:
+  variables:
+    CLAWDMETER_HOOK_URL: "http://host.docker.internal:${{ kit.args.hook_port }}/hook"
+
+setup:
+  install:
+    - command: "python3 /home/agent/.local/share/clawdmeter/install-hooks.py"
+      user: "1000"
+      description: Merge Clawdmeter hooks into ~/.claude/settings.json
