@@ -193,6 +193,7 @@ seconds and preserves comments and unknown keys when saving.
 | `poll_interval` | automatic | Override working and no-hooks polling intervals, in seconds. The scheduler enforces at least 120 seconds per account. Quiet and other-account schedules still apply. |
 | `heartbeat_interval` | `60` | Resend cached readings between usage checks. This does not fetch usage. Keep the default unless diagnosing the connection. |
 | `claude_path` | found on `PATH` | Full path to the Claude Code executable, if detection fails. |
+| `hook_port` | `47991` | Loopback port for `POST /hook?mode=…`, the HTTP ingest endpoint sandboxed Claude Code sessions use (see `tools/sbx-kit/`). `0` disables the listener. |
 | `update_check` | `on` | Check for firmware releases daily. |
 | `alert_on` | `permission, question, elicitation` | Which waits alert on the device and tray: `permission`, `question`, `idle`, `elicitation` (MCP input), or `none`. Set on the Hooks page. Other notification types follow `permission`. |
 | `release_repo` | `HermannBjorgvin/Clawdmeter` | GitHub repository used for firmware releases. |

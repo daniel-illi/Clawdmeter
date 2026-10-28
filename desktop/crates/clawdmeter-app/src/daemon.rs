@@ -22,6 +22,8 @@ use clawdmeter_core::{unix_now, Engine, EngineStatus, HostClock, Paths, Settings
 use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
+use crate::hookserve;
+
 /// Loop tick: events reach the device within about this long.
 const TICK: Duration = Duration::from_millis(500);
 /// Config re-read interval (s).
@@ -175,6 +177,17 @@ pub async fn run(paths: Paths, mut commands: mpsc::UnboundedReceiver<Command>, s
     let mut last_link_check = unix_now();
     let mut last_write_at = None;
     let mut chimes_muted = false;
+    // Hook ingest over HTTP (POST /hook) for sandboxed agents; `hook_port`
+    // = 0 keeps it off. Rebinds when the config re-read sees a new port.
+    let mut hook_listener =
+        hookserve::bind(engine.settings().hook_port, paths.state_dir.clone()).await.unwrap_or_else(|e| {
+            log::warn!("hook listener on 127.0.0.1:{}: {e}", engine.settings().hook_port);
+            None
+        });
+    // Warn once per unbindable port, not on every 5 s config re-read —
+    // starting with the startup attempt just made.
+    let mut hook_bind_failed =
+        (hook_listener.is_none() && engine.settings().hook_port != 0).then_some(engine.settings().hook_port);
     let mut ticker = tokio::time::interval(TICK);
     ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
@@ -231,6 +244,14 @@ pub async fn run(paths: Paths, mut commands: mpsc::UnboundedReceiver<Command>, s
                 }
                 if s.claude_path != engine.settings().claude_path || claude.is_none() {
                     claude = usage::find_claude(s.claude_path.as_deref(), &paths.home);
+                }
+                match hookserve::rebind(&mut hook_listener, s.hook_port, &paths.state_dir).await {
+                    Ok(()) => hook_bind_failed = None,
+                    Err(e) => {
+                        if hook_bind_failed.replace(s.hook_port) != Some(s.hook_port) {
+                            log::warn!("hook listener on 127.0.0.1:{}: {e}", s.hook_port);
+                        }
+                    }
                 }
                 engine.update_settings(s);
                 engine.set_claude_found(claude.is_some());

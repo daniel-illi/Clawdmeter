@@ -28,6 +28,9 @@ pub const LIVELINESS_MIN: u8 = 1;
 pub const LIVELINESS_MAX: u8 = 5;
 /// Some-nonsense: the director's own timings.
 pub const DEFAULT_LIVELINESS: u8 = 3;
+/// The loopback port the hook HTTP listener binds (`hook_port`; `0` turns
+/// it off). Sandboxed agents reach it through the sbx egress proxy.
+pub const DEFAULT_HOOK_PORT: u16 = 47991;
 
 /// A config file held as its original lines.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -266,6 +269,8 @@ pub struct Settings {
     pub attention_anim: AttentionAnim,
     /// Pace marker on the device's usage bars (`pm`, default off).
     pub pace_marker: bool,
+    /// Loopback port for the hook HTTP listener (`hook_port`, `0` = off).
+    pub hook_port: u16,
 }
 
 /// `alert_on`: the alert kinds that show, as a comma list of `permission`,
@@ -394,6 +399,7 @@ impl Settings {
             liveliness: cfg.get("liveliness").map(parse_liveliness).unwrap_or(DEFAULT_LIVELINESS),
             attention_anim: cfg.get("attention_anim").map(AttentionAnim::parse).unwrap_or_default(),
             pace_marker: on_off(cfg.get("pace_marker"), false),
+            hook_port: cfg.get("hook_port").and_then(|v| v.trim().parse().ok()).unwrap_or(DEFAULT_HOOK_PORT),
         }
     }
 
@@ -484,6 +490,9 @@ impl Settings {
         }
         if current.attention_anim != self.attention_anim {
             cfg.set("attention_anim", self.attention_anim.as_str());
+        }
+        if current.hook_port != self.hook_port {
+            cfg.set("hook_port", &self.hook_port.to_string());
         }
     }
 }
@@ -653,6 +662,22 @@ mod tests {
         s.apply_to(&mut cfg, &paths());
         assert_eq!(cfg.get("attention_anim"), Some("off"));
         assert_eq!(Settings::from_config(&cfg, &paths(), None).attention_anim, AttentionAnim::Off);
+    }
+
+    #[test]
+    fn hook_port() {
+        assert_eq!(settings("").hook_port, DEFAULT_HOOK_PORT, "enabled by default");
+        assert_eq!(settings("hook_port = 0\n").hook_port, 0);
+        assert_eq!(settings("hook_port = 48001\n").hook_port, 48001);
+        assert_eq!(settings("hook_port = later\n").hook_port, DEFAULT_HOOK_PORT);
+
+        let mut cfg = ConfigFile::parse("");
+        let mut s = Settings::from_config(&cfg, &paths(), None);
+        s.apply_to(&mut cfg, &paths());
+        assert!(cfg.get("hook_port").is_none(), "the default stays out of the file");
+        s.hook_port = 0;
+        s.apply_to(&mut cfg, &paths());
+        assert_eq!(cfg.get("hook_port"), Some("0"));
     }
 
     #[test]

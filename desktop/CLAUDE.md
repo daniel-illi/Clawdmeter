@@ -67,7 +67,8 @@ is faked behind `FlashHardware`.
   `release_repo`, `update_check`, `onboarding_done`, `alert_on` (alert kinds
   the daemon lets through: the hook records `k` from `hook_event_name` /
   `notification_type` and `engine.on_attention` drops the rest; default all
-  but `idle`).
+  but `idle`), `hook_port` (loopback port for `POST /hook?mode=…`, the HTTP
+  ingest for sandboxed agents; default 47991, `0` off).
 - Launch paths (`clawdmeter-core::launch`): hooks and Start at login write a
   stable path (`$APPIMAGE`, the Nix profile link, else `current_exe`). Under
   an AppImage, hooks run a copy extracted to `<state>/appimage/` (renewed when
